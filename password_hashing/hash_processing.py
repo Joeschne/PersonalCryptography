@@ -298,7 +298,7 @@ class HashProcessor:
         input_data: str,
         initial_base: int = 2951,
         use_additional_security: bool = True,
-        use_multiprocessing: bool = False,
+        use_multiprocessing: bool = True,
         charset: str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@%-.$="
     ) -> str:
         # Step 1: Generate the base primes and keys for hashing
