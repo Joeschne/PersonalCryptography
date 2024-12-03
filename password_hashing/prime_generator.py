@@ -1,16 +1,16 @@
 import random
-import math
 
 class PrimeGenerator:
     @staticmethod
-    def generate_prime(seed: int, limit: int = 10**64) -> int:
+    def generate_prime(seed: int, limit: int = 10**16) -> int:
         """
         Generate a prime number starting from the given seed.
         """
         seed += 50
-        log_of_seed = math.log(seed)
-        extra_safety = log_of_seed / 2
-        while seed + (log_of_seed * 4.605) + extra_safety > limit:
+        # approximate numbers as int to make use of pythons arbitrary int precision in case of really high limits
+        approx_log_of_seed = PrimeGenerator.approximate_ln(seed)
+        extra_safety = approx_log_of_seed // 2
+        while seed + (approx_log_of_seed * 4605 // 1000) + extra_safety > limit:
             seed //= 2
 
         if seed % 2 == 0:  # Ensure seed is odd
@@ -69,3 +69,18 @@ class PrimeGenerator:
             candidate += 2  # Skip even numbers
 
         raise ValueError(f"No prime found in the range [{seed}, {limit}]")
+
+    @staticmethod
+    def approximate_ln(n):
+        ln2 = 693  # Approximation of 1000 * ln(2)
+        log2 = PrimeGenerator.integer_log2(n)
+        return (log2 * ln2) // 1000  # Scale back to approximate ln(n)
+
+    @staticmethod
+    def integer_log2(n):
+        log = 0
+        while n > 1:
+            n >>= 1
+            log += 1
+        return log
+
