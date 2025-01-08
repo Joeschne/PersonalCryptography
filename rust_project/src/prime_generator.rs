@@ -1,7 +1,7 @@
 use malachite::random::EXAMPLE_SEED;
 use malachite::Natural;
 use malachite::natural::random;
-use malachite::num::arithmetic::traits::ModPow;
+use malachite::num::arithmetic::traits::{ModPow, Parity};
 use malachite::num::basic::traits::{One, Two};
 use lazy_static::lazy_static;
 
@@ -17,34 +17,23 @@ impl PrimeGenerator {
     pub fn next_limited_prime(seed: &Natural, limit: &Natural) -> Natural {
         let mut current = seed.clone();
         loop {
-            if current >= *limit {
-                break;
+            if current < *limit {
+                let prime = Self::next_prime(seed);
+                if prime < *limit {
+                    return prime;
+                }
             }
-            current >>= 1; // divide by two
-        }
-        loop {
-            let prime =Self::next_prime(seed);
-            if prime < *limit {
-                break prime;
-            }
-            current >>= 1;
+            current >>= 1; // divide by two 
         }
     }
     
 
     pub fn next_prime(seed: &Natural) -> Natural {
-        let mut current = seed.clone();
-        if Self::is_even(seed) {
-            current += &Natural::ONE;
+        let mut current = if seed.even() { seed + Natural::ONE } else { seed.clone() };
+        while !Self::is_prime(&current, 10) {
+            current += &Natural::TWO;
         }
-        loop {
-            if Self::is_prime(&current, 10) {
-                break current;
-            } 
-            else {
-                current += &Natural::from(2u8);
-            }
-        }
+        current
     }
     
 
@@ -59,14 +48,16 @@ impl PrimeGenerator {
         if *n <= *NATURAL_THREE {
             return true;
         }
-        if Self::is_even(n) {
+        if n.even() {
             return false;
         }
+        
+        let n_minus_one = n - Natural::ONE;
 
         // Decompose n - 1 into 2^exponent * odd_component
-        let mut odd_component = n - Natural::ONE;
+        let mut odd_component = n_minus_one.clone();
         let mut exponent_of_two = 0;
-        while Self::is_even(&odd_component) {
+        while odd_component.even() {
             odd_component /= Natural::TWO;
             exponent_of_two += 1;
         }
@@ -90,7 +81,7 @@ impl PrimeGenerator {
             let mut is_composite = true;
             for _ in 0..(exponent_of_two - 1) {
                 modular_exponentiation = modular_exponentiation.mod_pow(Natural::TWO, n);
-                if modular_exponentiation == n - Natural::ONE {
+                if modular_exponentiation == n_minus_one {
                     is_composite = false;
                     break;
                 }
@@ -104,12 +95,5 @@ impl PrimeGenerator {
         // If all iterations pass, n is probably prime
         true
     }
-
-    fn is_even(n: &Natural) -> bool {
-        if n & Natural::ONE == 0u8 {
-            return true;
-        }
-        false
-    }
-
+    
 }

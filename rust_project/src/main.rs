@@ -9,7 +9,7 @@ use prime_generator::PrimeGenerator;
 use malachite::Natural;
 
 fn main() {
-    let mut current = Natural::from(999999999999999999u128);
+    let mut current = Natural::from(9999999999921349999999u128);
     loop {
         if PrimeGenerator::is_prime(&current, 10) {
             println!("Prime found: {}", current)
