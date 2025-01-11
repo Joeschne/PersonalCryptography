@@ -1,8 +1,20 @@
 import itertools
+import time
 from concurrent.futures import ProcessPoolExecutor
 from prime_generator import PrimeGenerator
 
 class HashProcessor:
+
+    @staticmethod
+    def log_time(func):
+        """Decorator to log the time a function takes to execute."""
+        def wrapper(*args, **kwargs):
+            start_time = time.time()
+            result = func(*args, **kwargs)
+            elapsed_time = time.time() - start_time
+            print(f"{func.__name__} took {elapsed_time:.6f} seconds")
+            return result
+        return wrapper
 
     @staticmethod
     # Helper function to perform multiplication in galois field(2^8)
@@ -34,6 +46,7 @@ class HashProcessor:
         # Return the final result, which is the product of 'a' and 'b' reduced modulo the Rijndael polynomial.
         return result
 
+    @log_time
     @staticmethod
     def _string_to_number_dynamic(input_string: str, base: int, min_length: int = 991) -> int:
         # Initialize an empty dictionary to store character mappings
@@ -71,12 +84,14 @@ class HashProcessor:
             scaled_digit = (int(d) + cascade + base * i) % 10
             scaled_number.append(str(scaled_digit))
 
+        print(f"The number is: {"".join(scaled_number)}")
+
         # Ensure the result is still deterministic and of the desired length
         return int("".join(scaled_number))
 
-
+    @log_time
     @staticmethod
-    def _number_to_string(num: int, ascii_min: int =32, ascii_max: int = 126) -> str:
+    def _number_to_string(num: int, ascii_min: int=32, ascii_max: int = 126) -> str:
         result = []
         ascii_range = ascii_max - ascii_min + 1
 
@@ -106,6 +121,7 @@ class HashProcessor:
         # Reverse the result to restore the proper order
         return ''.join(reversed(result))
 
+    @log_time
     @staticmethod
     def _calculate_three_primary_keys(hash_input: str, hash_input_number: int, base: int) -> tuple[int, int, int]:
         # **Key 1 Calculation**
@@ -181,6 +197,7 @@ class HashProcessor:
         # Return all three keys as the result
         return key1, key2, key3
 
+    @log_time
     @staticmethod
     def _combine_keys_secure(key1: int, key2: int, key3: int) -> int:
         # Step 1: Dynamically adjust the base and modulus based on key lengths
@@ -225,6 +242,7 @@ class HashProcessor:
         print(f"Ultra key: {final_result}")
         return final_result
 
+    @log_time
     @staticmethod
     def _split_number_by_key(card_number: int, key1: int, key2: int, key3: int, base: int) -> list[int]:
         # Generate 16 ratios based on the keys
@@ -292,6 +310,7 @@ class HashProcessor:
                 base = PrimeGenerator.generate_prime(part_ultra_key)
         return output
 
+    @log_time
     @staticmethod
     def hash_input_data(
         hash_key: str,
