@@ -45,7 +45,7 @@ class StringToNumber:
     def hash_string(message: str) -> int:
         blocks = StringToNumber._preprocess_message(message)
         
-        state = StringToNumber.IVS
+        state = StringToNumber.IVS[:]
         for block in blocks:
             words = [
                 int.from_bytes(block[i:i + 8], 'big')
@@ -53,10 +53,6 @@ class StringToNumber:
             ]
             full_words = StringToNumber._expand_schedule(words)
             state = StringToNumber._compress(state, full_words, StringToNumber.WORDS)
-
-        assert len(state) == 8, "State must contain exactly 8 integers."
-        for num in state:
-            assert 0 <= num < 2**64, f"Number {num} is not a 64-bit integer."
 
         # Concatenate all integers into a single 512-bit integer
         concatenated = 0
@@ -87,45 +83,44 @@ class StringToNumber:
         
         for t in range(16, 80):
             new_word = (
-                StringToNumber.wave(W[t-16]) +
-                StringToNumber.draft(W[t-15]) +
-                StringToNumber.breeze(W[t-7]) +
-                StringToNumber.ripple(W[t-2])
+                StringToNumber._wave(W[t-16]) +
+                StringToNumber._draft(W[t-15]) +
+                StringToNumber._breeze(W[t-7]) +
+                StringToNumber._ripple(W[t-2])
             ) & 0xFFFFFFFFFFFFFFFF  # Efficient modulo
-            print(hex(new_word))
             W.append(new_word)
         
         return W
 
     @staticmethod
     def _compress(state: list[int], schedule: list[int], constants: list[int]) -> list[int]:
-        
-        assert len(state) == 8, "State must have 8 variables."
-        assert len(schedule) == 80, "Schedule must have 80 words."
-        assert len(constants) == 80, "Constants must have 80 words."
-        
-        initial_state = state
+        a, b, c, d, e, f, g, h = state
 
         # Compression rounds
         for t in range(80):
             T1 = (
-                StringToNumber.torrent(state[3]) +
-                StringToNumber.crosscurrent(state[0], state[1], state[2]) +
+                StringToNumber._torrent(d) +
+                StringToNumber.crosscurrent(a, b, c) +
                 schedule[t] +
                 constants[t]
             ) & 0xFFFFFFFFFFFFFFFF  
             T2 = (
-                StringToNumber.cyclone(state[4]) +
-                StringToNumber.confluence(state[5], state[6], state[7])
+                StringToNumber._cyclone(e) +
+                StringToNumber._confluence(f, g, h)
             ) & 0xFFFFFFFFFFFFFFFF
-            
-            state [3] = state [3] + T1 & 0xFFFFFFFFFFFFFFFF
 
-            state = [(T1 + T2) & 0xFFFFFFFFFFFFFFFF] + state[:-1]
+            a, b, c, d, e, f, g, h = (T1 + T2 & 0xFFFFFFFFFFFFFFFF), a, b, c, (d + T1 & 0xFFFFFFFFFFFFFFFF), e, f, g
         
-        for t in range(len(state)):
-            state[t] = state[t] + initial_state[t] & 0xFFFFFFFFFFFFFFFF
-        return state
+        a = (a + state[0]) & 0xFFFFFFFFFFFFFFFF
+        b = (b + state[1]) & 0xFFFFFFFFFFFFFFFF
+        c = (c + state[2]) & 0xFFFFFFFFFFFFFFFF
+        d = (d + state[3]) & 0xFFFFFFFFFFFFFFFF
+        e = (e + state[4]) & 0xFFFFFFFFFFFFFFFF
+        f = (f + state[5]) & 0xFFFFFFFFFFFFFFFF
+        g = (g + state[6]) & 0xFFFFFFFFFFFFFFFF
+        h = (h + state[7]) & 0xFFFFFFFFFFFFFFFF
+        
+        return [a, b, c, d, e, f, g, h]
 
     @staticmethod
     def _fibonacci_xor_pad(message: bytes, target_length: int) -> bytes:
@@ -151,14 +146,14 @@ class StringToNumber:
         return bytes(padded)
     
     @staticmethod
-    def breeze(x):
+    def _breeze(x):
         # Gentle rightward nudge, then localized disruption
         gust = Helperly.rotate_right(x, 5)  # A soft rotation, like a light breeze
         drift = (x >> 2) ^ 0xF0F0F0F0F0F0F0F0  # Adds localized turbulence to airflow
         return gust ^ drift  # Combines the motions
     
     @staticmethod
-    def draft(x):
+    def _draft(x):
         # Alternating directional force
         uplift = Helperly.rotate_left(x, 9)  # Pushes bits upward like an updraft
         downdraft = Helperly.rotate_right(x, 13)  # A stronger downward pull
@@ -166,7 +161,7 @@ class StringToNumber:
         return uplift ^ downdraft ^ eddy  # Combines for balanced motion        
     
     @staticmethod
-    def cyclone(x):
+    def _cyclone(x):
         # Chaotic swirling motions
         vortex_inward = Helperly.rotate_right(x, 17)  # Pulls bits inward
         vortex_outward = Helperly.rotate_left(x, 23)  # Expels bits outward
@@ -176,7 +171,7 @@ class StringToNumber:
         return vortex_inward ^  chaos  # Combines the swirl       
     
     @staticmethod
-    def ripple(x):
+    def _ripple(x):
         # Oscillating and spreading motions
         wavefront = (x >> 3)  # Initial disturbance in the water
         oscillation = Helperly.rotate_right(wavefront, 7)  # Spreads the ripple outward
@@ -184,14 +179,14 @@ class StringToNumber:
         return oscillation ^ propagation  # Combines spreading effects       
 
     @staticmethod
-    def wave(x):
+    def _wave(x):
         # Rolling and oscillating motions with interference
         crest = Helperly.rotate_left(x, 19)  # The smooth rise of the wave
         trough = (x >> 7) | (x << 5)  # The fall into the trough
         return crest ^ trough # Combines         
     
     @staticmethod
-    def torrent(x):
+    def _torrent(x):
         # Fast and forceful motions
         cascade = Helperly.rotate_right(x, 37)  # A downward, rushing force
         surge = Helperly.rotate_left(x, 29)  # Counterbalancing upward surge
@@ -199,7 +194,7 @@ class StringToNumber:
         return cascade ^ surge ^ overflow  # Combines for rapid scrambling
     
     @staticmethod
-    def confluence(a, b, c):
+    def _confluence(a, b, c):
         # Weighted combination using addition and shifts
         return ((a << 1) + b + (c >> 1)) & 0xFFFFFFFFFFFFFFFF
     
@@ -212,9 +207,16 @@ class StringToNumber:
         
 if __name__ == "__main__":
     start_time = time.time()
-    
-    result = StringToNumber.hash_string("f")
+    result = 0
+    prior_result = StringToNumber.hash_string("sfg")
+    for i in range(1000):
+        result = StringToNumber.hash_string("sfg")
+        assert result == prior_result, f"iteration {i}"
+        prior_result = result
+
 
     elapsed_time = time.time() - start_time
     print(f"Took {elapsed_time:.6f} seconds")
+    print(result)
+    result = StringToNumber.hash_string("f")
     print(result)
