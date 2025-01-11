@@ -1,8 +1,21 @@
 import itertools
+import time
 from concurrent.futures import ProcessPoolExecutor
 from prime_generator import PrimeGenerator
+from string_to_number import StringToNumber
 
 class HashProcessor:
+
+    @staticmethod
+    def log_time(func):
+        """Decorator to log the time a function takes to execute."""
+        def wrapper(*args, **kwargs):
+            start_time = time.time()
+            result = func(*args, **kwargs)
+            elapsed_time = time.time() - start_time
+            print(f"{func.__name__} took {elapsed_time:.6f} seconds")
+            return result
+        return wrapper
 
     @staticmethod
     # Helper function to perform multiplication in galois field(2^8)
@@ -34,49 +47,9 @@ class HashProcessor:
         # Return the final result, which is the product of 'a' and 'b' reduced modulo the Rijndael polynomial.
         return result
 
+    @log_time
     @staticmethod
-    def _string_to_number_dynamic(input_string: str, base: int, min_length: int = 991) -> int:
-        # Initialize an empty dictionary to store character mappings
-        char_to_num = {}
-
-        # Generate the dictionary dynamically
-        for i, char in enumerate(input_string):
-            # Simple custom hash function for mapping
-            mapped_value = (ord(char) * base + i ** 2) % 997  # Modulo to limit size
-            char_to_num[char] = mapped_value
-
-        # Use the dictionary to encode the string into  concatenated number
-        raw_number = "".join(str(char_to_num[char]) for char in input_string)
-
-        # Step 1: Scramble the raw number with  cascade modifier
-        cascade = base
-        scrambled = []
-        for i, digit in enumerate(raw_number):
-            # Cascade influences the scrambling to prevent repetition
-            cascade = ((cascade ^ (ord(char) * (ord(input_string[i % len(input_string)]) + 1))) + int(digit) ** 2 + (cascade << 3)) % 10007
-            scrambled_digit = (int(digit) + cascade + (i * base)) % 10
-            scrambled.append(str(scrambled_digit))
-        scrambled_number = "".join(scrambled)
-
-        # Step 2: Pad to ensure minimum length with cascade influence
-        while len(scrambled_number) < min_length:
-            pad_digit = (len(scrambled_number) * base + cascade) % 10
-            scrambled_number += str(pad_digit)
-            cascade = (cascade * 13 + pad_digit) % 1003  # Continue modifying the cascade
-
-        # Step 3: Scale the number to spread out digits with cascade influence
-        scaled_number = []
-        for i, d in enumerate(scrambled_number):
-            cascade = (HashProcessor._galois_field_mul(cascade, int(d) + i) * cascade * 7 + int(d) + i) % 971  # Update cascade during scaling
-            scaled_digit = (int(d) + cascade + base * i) % 10
-            scaled_number.append(str(scaled_digit))
-
-        # Ensure the result is still deterministic and of the desired length
-        return int("".join(scaled_number))
-
-
-    @staticmethod
-    def _number_to_string(num: int, ascii_min: int =32, ascii_max: int = 126) -> str:
+    def _number_to_string(num: int, ascii_min: int=32, ascii_max: int = 126) -> str:
         result = []
         ascii_range = ascii_max - ascii_min + 1
 
@@ -106,6 +79,7 @@ class HashProcessor:
         # Reverse the result to restore the proper order
         return ''.join(reversed(result))
 
+    @log_time
     @staticmethod
     def _calculate_three_primary_keys(hash_input: str, hash_input_number: int, base: int) -> tuple[int, int, int]:
         # **Key 1 Calculation**
@@ -125,8 +99,6 @@ class HashProcessor:
             card_digit = int(str(hash_input_number)[i % len(str(hash_input_number))])
             key1 *= (ord(c) ^ card_digit) + (key1mod % (i + 3)) + (base ** ((i + 1) % 5))  # XOR + modular + scaling
         key1 = abs(key1) % (key1mod * 10) + base * 3  # Scale and offset the final result
-
-        print(f"Key 1: {key1}")
 
 
         # **Key 2 Calculation**
@@ -151,8 +123,6 @@ class HashProcessor:
         # Normalize `key2` to  large, dynamic range
         key2 = abs(key2) % (key2mod * 97) + base * 7  # Scale and offset for larger variability
 
-        print(f"Key 2: {key2}")
-
         # **Key 3 Calculation**
         # Step 1: Compute `key3mod`
         # - Uses  multiplicative hash to compute  base value
@@ -175,12 +145,10 @@ class HashProcessor:
         # - Take the modulus of the result with `key3mod` and offset by `base` for non-zero outputs
         key3 = (key3 % key3mod) + base
 
-        # Debug output for Key 3
-        print(f"Key 3: {key3}")
-
         # Return all three keys as the result
         return key1, key2, key3
 
+    @log_time
     @staticmethod
     def _combine_keys_secure(key1: int, key2: int, key3: int) -> int:
         # Step 1: Dynamically adjust the base and modulus based on key lengths
@@ -222,9 +190,9 @@ class HashProcessor:
 
         # Step 6: Final scaling and dynamic modulus with  larger range
         final_result = abs(interleaved + result) % max(prime_mod * base, 10 ** 6)
-        print(f"Ultra key: {final_result}")
         return final_result
 
+    @log_time
     @staticmethod
     def _split_number_by_key(card_number: int, key1: int, key2: int, key3: int, base: int) -> list[int]:
         # Generate 16 ratios based on the keys
@@ -264,7 +232,7 @@ class HashProcessor:
     @staticmethod
     def _process_part(part: int, base: int, charset: str) -> str:
         part_string = HashProcessor._number_to_string(part)
-        part_number = HashProcessor._string_to_number_dynamic(part_string, base)
+        part_number = StringToNumber.hash_string(part_string)
         key1, key2, key3 = HashProcessor._calculate_three_primary_keys(part_string, part_number, base)
         part_ultra_key = HashProcessor._combine_keys_secure(key1, key2, key3)
         return charset[part_ultra_key % len(charset)]
@@ -284,7 +252,7 @@ class HashProcessor:
 
         for part in parts:
             part_string = HashProcessor._number_to_string(part)
-            part_number = HashProcessor._string_to_number_dynamic(part_string, base)
+            part_number = StringToNumber.hash_string(part_string)
             key1, key2, key3 = HashProcessor._calculate_three_primary_keys(part_string, part_number, base)
             part_ultra_key = HashProcessor._combine_keys_secure(key1, key2, key3)
             output += charset[part_ultra_key % len(charset)]
@@ -292,6 +260,7 @@ class HashProcessor:
                 base = PrimeGenerator.generate_prime(part_ultra_key)
         return output
 
+    @log_time
     @staticmethod
     def hash_input_data(
         hash_key: str,
@@ -318,7 +287,7 @@ class HashProcessor:
     def _generate_ultra_key_base_prime(hash_key: str, initial_base: int) -> int:
         """Generates the ultra key base prime for hashing."""
         initial_base_prime = PrimeGenerator.generate_prime(initial_base)
-        key_number = HashProcessor._string_to_number_dynamic(hash_key, initial_base_prime)
+        key_number = StringToNumber.hash_string(hash_key)
         key1, key2, key3 = HashProcessor._calculate_three_primary_keys(hash_key, key_number, initial_base_prime)
         ultra_key_base = HashProcessor._combine_keys_secure(key1, key2, key3)
         return PrimeGenerator.generate_prime(ultra_key_base)
@@ -326,7 +295,7 @@ class HashProcessor:
     @staticmethod
     def _process_input_data(input_data: str, ultra_key_base_prime: int):
         """Processes the input data into numeric form and splits it into parts."""
-        input_data_number = HashProcessor._string_to_number_dynamic(input_data, ultra_key_base_prime)
+        input_data_number = StringToNumber.hash_string(input_data)
         key1, key2, key3 = HashProcessor._calculate_three_primary_keys(input_data, input_data_number, ultra_key_base_prime)
         parts = HashProcessor._split_number_by_key(input_data_number, key1, key2, key3, ultra_key_base_prime)
         return parts
