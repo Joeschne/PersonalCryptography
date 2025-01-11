@@ -1,12 +1,22 @@
+mod hash_processor;
+mod hash_config;
+mod prime_generator;
+
+use hash_processor::HashProcessor;
+use hash_config::HashConfig;
+use prime_generator::PrimeGenerator;
+
+use malachite::Natural;
+
 fn main() {
-    let string1 = String::from("Hello");
-    let string2 = String::from("Rust");
-
-    print_two_strings(&string1, &string2);
-
-    println!("Original strings: {}, {}", string1, string2);
-}
-
-fn print_two_strings(input1: &str, input2: &str) {
-    println!("{} and {}", input1, input2);
+    let mut current = Natural::from(9999999999921349999999u128);
+    loop {
+        if PrimeGenerator::is_prime(&current, 10) {
+            println!("Prime found: {}", current)
+        }
+        else {
+            println!("Not prime: {}", current)
+        }
+        current += Natural::from(1u8);
+    }
 }
